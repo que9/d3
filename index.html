@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <title>D3 Learning</title>
+    <style>
+      .highlight{font-size:22px !important; }
+
+      #modal { position:fixed;left:150px;top:20px;z-index:1;background: white;border: 1px black solid;box-shadow: 10px 10px 5px #888888;}
+      tr { border: 1px gray solid;}
+      td {font-size: 12px;}
+      td.data {font-weight: 900;}
+    </style>
+  </head>
+  <body>
+
+
+    <div id="controls"></div>
+    
+    <script src="https://d3js.org/d3.v4.js" type="text/javascript"></script>
+    <script src="colorbrewer.js" type="text/javascript"></script>
+    <script src="soccerviz.js" type="text/javascript"></script>
+
+
+    <script type="text/javascript">
+      "use strict";     
+
+        let svgH  = 200,
+            svgW  = 500,
+            rectW = 20,
+            gutter= 2;;
+      
+      const reverse = false;
+
+      // d3.select("body")
+      //   .append("svg")
+      //   .attr("id","svg1")
+      //   .style("border", "1px solid cornflowerblue")
+      //   .style("width", svgW+"px")
+      //   .style("height", svgH+"px")
+      //   .style("border-radius","2px");  
+
+
+      // d3.select("body")
+      //   .append("svg")
+      //   .attr("id","svg2")
+      //   .style("border", "1px solid cornflowerblue")
+      //   .style("width", svgW+"px")
+      //   .style("height", svgH+"px")
+      //   .style("border-radius","2px");
+
+
+     
+
+      var dataViz1 = function( selector, d){
+          let userBinning, extent;
+              // Bibbing based on user tweeted
+              userBinning = d3.nest().key( item => item.user ).entries( d.tweets );
+              // Getting maximum and minimum commentor
+              extent = d3.extent( userBinning, item  => item.values.length );
+              
+              //-- Creating vertical scalling 
+              var yScale = d3.scaleLinear().domain( [0, extent[1]] ).range([ 0, svgH ]);
+              
+              // Plotting graph
+              /*
+                #1 Select svg
+                #2 Select all rect which returns empty selection
+                #3 Enter data
+                #4 Using enter() method to determine how to deal with data and element
+              */
+
+              
+              d3.select( selector )
+                .selectAll("rect").data( userBinning ).enter()
+                .append("rect")
+                //-- 
+                .attr("x", (d,i) => (rectW + gutter)*i )
+                .attr("y", d => reverse ? 0 : svgH-yScale(d.values.length) )
+                .attr("width", rectW)
+                .attr("height", d => yScale( d.values.length))
+                //--
+                .style("fill", "orange")
+                .style("opacity", "1");
+      };
+
+
+      var dataViz2 = function( selector, d ){                   
+          let minRadius   = 1,
+              maxRadius   = 20,
+              startColor  = "lightblue",
+              endColor    = "navy",
+              margin      = 10,
+              yScale, colorScale ,radiusScale, timeRamp, impactExtent, timeExtent;
+
+
+              // Creates an impact score by totalling favorites and retweets
+              // Converting ISO-8906 to Date datatype
+              d.forEach( item =>{
+                item.impact = item.favorites.length + item.retweets.length; 
+                item.time   = new Date( item.timestamp );
+              });
+
+              // Grabbing extents
+              impactExtent  = d3.extent( d, item=>item.impact );
+              timeExtent    = d3.extent( d, item=>item.time );
+              
+              yScale      = d3.scaleLinear().domain( [0, impactExtent[1]] ).range([0, svgH]);
+              timeRamp    = d3.scaleTime().domain( timeExtent ).range( [0, svgH] );
+              radiusScale = d3.scaleLinear().domain([0, impactExtent[1]]).range([minRadius, maxRadius]);
+              colorScale  = d3.scaleLinear().domain([0, impactExtent[1]]).range(['white', "navy"]);
+
+
+              
+            
+
+              
+              //--Creating groups  with positions --- X,Y >: Position
+              let TweetG = d3.select(selector)
+                          .selectAll("g").data(d).enter()
+                          .append("g")
+                          .on("mouseenter", function(e){
+                            console.log(e, this);
+                            d3.select(this)
+                              .append("text")
+                              .style("text-anchor","middle")
+                              .text(d => d.user+" #"+d.time.getHours() );
+                          })
+                          .on("mouseleave", function(e){
+                              d3.select(this).select("text").remove()
+                          })
+                          .attr("transform", d => `translate( ${timeRamp(d.time)} , ${(svgH) - yScale( d.impact )})`);
+              
+              TweetG
+                .append("circle")
+                .attr("r", d => radiusScale(d.impact))
+                .attr("fill", d => colorScale(d.impact) )
+                .style("stroke","black")
+                .style("stroke-width","1px");
+                
+      };      
+
+      /*
+          5 bugs in your name
+          both teams are aligned
+      */
+
+        d3.json("tweets.json", (error, d) =>{
+          if( error )
+            throw error;
+
+           dataViz1("#svg1", d);
+           dataViz2("#svg2", d.tweets );
+        });
+
+
+
+
+
+       
+
+
+    </script>
+
+  </body>
+</html>
